@@ -1,0 +1,6 @@
+{
+  "name": "ВХолодильнике — Редактор питча",
+  "description": "Интерактивный HTML-редактор 4-минутного инвесторского питча проекта «ВХолодильнике» с таймингом, репетицией и экспортом.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

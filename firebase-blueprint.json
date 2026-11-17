@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "PitchRoom": {
+      "title": "PitchRoom",
+      "description": "Shared collaborative room storing pitch script sections, slide theses, and author color/presence registry.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "description": "Room identifier matching document ID.",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the room creator.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "shareToken": {
+          "type": "string",
+          "description": "Capability token included in friend invite links to join this room.",
+          "minLength": 8,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "version": {
+          "type": "number",
+          "description": "Monotonic room revision counter."
+        },
+        "sections": {
+          "type": "array",
+          "description": "Ordered list of pitch script sections (1 to 30 sections)."
+        },
+        "slideTheses": {
+          "type": "array",
+          "description": "Slide-mapped thesis rows (1 to 40 rows)."
+        },
+        "authors": {
+          "type": "object",
+          "description": "Map of collaborator IDs to display name, highlight hex color, and active cue status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": [
+        "roomId",
+        "ownerUid",
+        "shareToken",
+        "version",
+        "sections",
+        "slideTheses",
+        "authors",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomMember": {
+      "title": "RoomMember",
+      "description": "Authorized collaborator membership inside a pitch room.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the collaborator.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "role": {
+          "type": "string",
+          "enum": ["owner", "editor"],
+          "description": "Collaborator role in the room."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name shown in the script editor.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "color": {
+          "type": "string",
+          "description": "Selected hex highlight color.",
+          "minLength": 4,
+          "maxLength": 16,
+          "pattern": "^#[0-9a-fA-F]{3,8}$"
+        },
+        "joinToken": {
+          "type": "string",
+          "description": "Share token presented at join time.",
+          "minLength": 8,
+          "maxLength": 64
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when member joined."
+        }
+      },
+      "required": ["uid", "role", "displayName", "color", "joinToken", "joinedAt"]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/PitchRoom" },
+      "description": "Collaborative pitch room document storing sections, slide theses, and author colors."
+    },
+    "/rooms/{roomId}/members/{memberUid}": {
+      "schema": { "$ref": "#/entities/RoomMember" },
+      "description": "Verified collaborators granted access to edit the parent pitch room."
+    }
+  }
+}

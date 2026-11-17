@@ -1,0 +1,202 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUid(uid) {
+      return uid is string && uid.size() >= 1 && uid.size() <= 128 && uid.matches('^[a-zA-Z0-9_\\-:]+$');
+    }
+
+    function isValidColor(color) {
+      return color is string && color.size() >= 4 && color.size() <= 16 && color.matches('^#[0-9a-fA-F]{3,8}$');
+    }
+
+    function isRoomMember(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid));
+    }
+
+    function isValidPitchRoom(data, roomId) {
+      return data.keys().hasAll([
+          'roomId',
+          'ownerUid',
+          'shareToken',
+          'version',
+          'sections',
+          'slideTheses',
+          'authors',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'roomId',
+          'ownerUid',
+          'shareToken',
+          'version',
+          'sections',
+          'slideTheses',
+          'authors',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.roomId == roomId
+        && isValidId(data.roomId)
+        && isValidUid(data.ownerUid)
+        && data.shareToken is string
+        && data.shareToken.size() >= 8
+        && data.shareToken.size() <= 64
+        && data.shareToken.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.version is int
+        && data.version >= 1
+        && data.sections is list
+        && data.sections.size() >= 1
+        && data.sections.size() <= 30
+        && data.sections[0] is map
+        && data.slideTheses is list
+        && data.slideTheses.size() >= 1
+        && data.slideTheses.size() <= 40
+        && data.slideTheses[0] is map
+        && data.authors is map
+        && data.authors.keys().size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoomMember(data, memberUid) {
+      return data.keys().hasAll([
+          'uid',
+          'role',
+          'displayName',
+          'color',
+          'joinToken',
+          'joinedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'role',
+          'displayName',
+          'color',
+          'joinToken',
+          'joinedAt'
+        ])
+        && data.uid == memberUid
+        && isValidUid(data.uid)
+        && data.role in ['owner', 'editor']
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 40
+        && isValidColor(data.color)
+        && data.joinToken is string
+        && data.joinToken.size() >= 8
+        && data.joinToken.size() <= 64
+        && data.joinedAt is timestamp;
+    }
+
+    match /rooms/{roomId} {
+      allow get: if isVerified() && isValidId(roomId) && (
+        existing().ownerUid == request.auth.uid || isRoomMember(roomId)
+      );
+
+      allow list: if isVerified() && existing().ownerUid == request.auth.uid;
+
+      allow create: if isVerified()
+        && isValidId(roomId)
+        && isValidPitchRoom(incoming(), roomId)
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerified()
+        && isValidId(roomId)
+        && isValidPitchRoom(incoming(), roomId)
+        && (existing().ownerUid == request.auth.uid || isRoomMember(roomId))
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().roomId == existing().roomId
+        && incoming().shareToken == existing().shareToken
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'version',
+          'sections',
+          'slideTheses',
+          'authors',
+          'updatedAt'
+        ]);
+
+      allow delete: if isVerified()
+        && isValidId(roomId)
+        && existing().ownerUid == request.auth.uid;
+
+      match /members/{memberUid} {
+        allow get: if isVerified()
+          && isValidId(roomId)
+          && isValidUid(memberUid)
+          && (memberUid == request.auth.uid || isRoomMember(roomId));
+
+        allow list: if false;
+
+        allow create: if isVerified()
+          && isValidId(roomId)
+          && isValidUid(memberUid)
+          && isValidRoomMember(incoming(), memberUid)
+          && memberUid == request.auth.uid
+          && incoming().joinedAt == request.time
+          && existsAfter(/databases/$(database)/documents/rooms/$(roomId))
+          && (
+            (
+              incoming().role == 'owner'
+              && getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == request.auth.uid
+              && incoming().joinToken == getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.shareToken
+            )
+            || (
+              incoming().role == 'editor'
+              && incoming().joinToken == getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.shareToken
+            )
+          );
+
+        allow update: if isVerified()
+          && isValidId(roomId)
+          && isValidUid(memberUid)
+          && isValidRoomMember(incoming(), memberUid)
+          && memberUid == request.auth.uid
+          && isRoomMember(roomId)
+          && incoming().uid == existing().uid
+          && incoming().role == existing().role
+          && incoming().joinToken == existing().joinToken
+          && incoming().joinedAt == existing().joinedAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'color']);
+
+        allow delete: if isVerified()
+          && isValidId(roomId)
+          && isValidUid(memberUid)
+          && (
+            memberUid == request.auth.uid
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == request.auth.uid
+          );
+      }
+    }
+  }
+}

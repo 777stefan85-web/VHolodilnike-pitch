@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    background-color: #f8faf8;
+    color: #142018;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.editable-cue:focus {
+  outline: none;
+}
+
+.editable-cue b,
+.editable-cue strong {
+  font-weight: 700;
+  color: #0e1c14;
+}
+
+.editable-cue .stage-dir {
+  color: #556b5d;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.editable-cue mark.author-mark {
+  background-color: #e4ebe5;
+  color: #142018;
+  border-radius: 3px;
+  padding: 1px 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background-color 0.2s ease;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  html {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .print-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-block {
+    break-inside: avoid;
+    border-color: #d4dcd6 !important;
+    box-shadow: none !important;
+  }
+}
